@@ -164,6 +164,7 @@ ledger = Ledger("breakout")
 unique_stocks_file = open("unique_stocks.txt", 'w')
 for stock in unique_stocks.keys():
     unique_stocks_file.write(stock + "\n")
+logging.debug("number of unique_stocks : " + str(len(unique_stocks.keys())))
 
 # construct stock history
 stock_history = {}

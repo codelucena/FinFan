@@ -20,9 +20,10 @@ for line in f.readlines():
     request_str = "https://yfapi.net/v8/finance/chart/{stock}.NS?range={range}&region=IN&interval={interval}&lang=en"
     resp = requests.get(request_str.format(stock=stock, range="1y", interval="1h"), headers=headers)
     if resp.status_code == 200:
-        logging.info("success")
+      logging.info("success")
+      s = open(chart_name, 'w')
+      json.dump(resp.json(), s)
     else:
-        logging.info("failed to fetch yhf data")
+      logging.info("failed to fetch yhf data")
     logging.debug(resp.json())
-    s = open(chart_name, 'w')
-    json.dump(resp.json(), s)
+    
