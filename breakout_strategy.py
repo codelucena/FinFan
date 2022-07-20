@@ -3,6 +3,7 @@ from datetime import timedelta
 from os.path import exists
 import copy
 import logging
+import os
 import requests
 import json
 
@@ -254,5 +255,6 @@ for dt in sorted(date_to_stocks.keys()):
 
 print("capital utilized : " + str(int(ledger.init_capital - ledger.min_capital)))
 print("profit/loss: " + str(int(ledger.profit_or_loss)))
+os.makedirs("output")
 ledger.printOrders("output/orders.txt")
 ledger.printHoldings("output/holdings.txt")
