@@ -3,7 +3,7 @@ import logging
 import requests
 import json
 
-logging.basicConfig(filename='fetcher.log',
+logging.basicConfig(filename='logs/fetcher.log',
                     filemode='w',
                     format='%(name)s - %(levelname)s - %(message)s',
                     level=logging.DEBUG)
