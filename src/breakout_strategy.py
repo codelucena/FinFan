@@ -7,7 +7,7 @@ import os
 import requests
 import json
 
-logging.basicConfig(filename='logs/app.log',
+logging.basicConfig(filename='../logs/app.log',
                     filemode='w',
                     format='%(name)s - %(levelname)s - %(message)s',
                     level=logging.DEBUG)
@@ -137,7 +137,7 @@ class Ledger:
 
 def readStrategyOutput(start_date, end_date):
     # Read Data from Chart Ink
-    csv = open("strategy_output.csv", 'r')
+    csv = open("../data/strategy_output.csv", 'r')
     date_to_stocks = dict()
     unique_stocks = dict()
     for line in csv.readlines():
@@ -156,7 +156,7 @@ def readStrategyOutput(start_date, end_date):
             unique_stocks[stock] = 1
     logging.debug("Date to Stocks")
     logging.debug(date_to_stocks)
-    unique_stocks_file = open("unique_stocks.txt", 'w')
+    unique_stocks_file = open("../data/unique_stocks.txt", 'w')
     for stock in unique_stocks.keys():
         unique_stocks_file.write(stock + "\n")
     logging.debug("number of unique_stocks : " + str(len(unique_stocks.keys())))
@@ -166,7 +166,7 @@ def getStockHistory():
     stock_history = {}
     for stock in unique_stocks:
         stock_history[stock] = {}
-        stock_filename = "charts/" + stock + ".json"
+        stock_filename = "../charts/" + stock + ".json"
         if not exists(stock_filename):
             print("Stock doesn't exist, please fetch : " + stock)
             continue
@@ -264,8 +264,8 @@ def run():
     print("profit/loss: " + str(int(ledger.profit_or_loss)))
     if not exists("output"):
     os.makedirs("output")
-    ledger.printOrders("output/orders.txt")
-    ledger.printHoldings("output/holdings.txt")
+    ledger.printOrders("../output/orders.txt")
+    ledger.printHoldings("../output/holdings.txt")
 
 if __name__ == "__main__":
     run()

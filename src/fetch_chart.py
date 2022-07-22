@@ -3,15 +3,15 @@ import logging
 import requests
 import json
 
-logging.basicConfig(filename='logs/fetcher.log',
+logging.basicConfig(filename='../logs/fetcher.log',
                     filemode='w',
                     format='%(name)s - %(levelname)s - %(message)s',
                     level=logging.DEBUG)
 
-f = open("unique_stocks.txt", 'r')
+f = open("../data/unique_stocks.txt", 'r')
 for line in f.readlines():
   stock = line.strip()
-  chart_name = "charts/" + stock + ".json"
+  chart_name = "../charts/" + stock + ".json"
   if exists(chart_name):
     print("File already exists " + chart_name)
   else:

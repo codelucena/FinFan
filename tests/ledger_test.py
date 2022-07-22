@@ -1,5 +1,5 @@
 import unittest
-from breackout_strategy import Ledger
+from ../src/breackout_strategy import Ledger
 
 class LedgerTest(unittest.TestCase):
   def ledger_buy(self):
