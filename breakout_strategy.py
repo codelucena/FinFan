@@ -136,7 +136,7 @@ class Ledger:
             del self.stocks_to_holdings[stock] 
 
 
-start_date = datetime.strptime("01/05/2022", "%d/%m/%Y")
+start_date = datetime.strptime("10/03/2022", "%d/%m/%Y")
 end_date = datetime.strptime("01/07/2022", "%d/%m/%Y")
 # Read Data from Chart Ink
 csv = open("strategy_output.csv", 'r')
@@ -256,6 +256,7 @@ for dt in sorted(date_to_stocks.keys()):
 
 print("capital utilized : " + str(int(ledger.init_capital - ledger.min_capital)))
 print("profit/loss: " + str(int(ledger.profit_or_loss)))
-os.makedirs("output")
+if not exists("output"):
+  os.makedirs("output")
 ledger.printOrders("output/orders.txt")
 ledger.printHoldings("output/holdings.txt")
