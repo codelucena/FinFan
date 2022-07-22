@@ -1,9 +1,9 @@
 # FinFan
 
-python3 breakout_strategy.py < input.txt
+python3 src/breakout_strategy.py < data/input.txt
 
 if charts are missing for some stocks
-run python3 fetch_chart.py after running the above command and rerun breakout_strategy.py
+run python3 src/fetch_chart.py after running the above command and rerun breakout_strategy.py
 
 input file will have three lines
 - upper threshold % (minimum profit for exit) (default = 10)
