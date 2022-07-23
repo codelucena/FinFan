@@ -1,5 +1,6 @@
 from datetime import datetime
 from datetime import timedelta
+from math import floor
 from os.path import exists
 from ledger import Ledger, StockPosition
 import copy
@@ -15,9 +16,9 @@ logging.basicConfig(filename='logs/app.log',
                     level=logging.DEBUG)
 
 
-def readStrategyOutput(start_date, end_date):
+def readStrategyOutput(csv_name, start_date, end_date):
     # Read Data from Chart Ink
-    csv = open("data/strategy_output.csv", 'r')
+    csv = open(csv_name, 'r')
     date_to_stocks = dict()
     unique_stocks = dict()
     for line in csv.readlines():
@@ -74,20 +75,39 @@ def getStockHistory(unique_stocks):
             stock_history[stock][timestamp_list[i]] = stock_pos
     return stock_history
 
-def run():
-    start_date = datetime.strptime("1/02/2022", "%d/%m/%Y")
-    end_date = datetime.strptime("01/07/2022", "%d/%m/%Y")
-
-    ledger = Ledger("breakout")
-    date_to_stocks, unique_stocks = readStrategyOutput(start_date, end_date)
-    stock_history = getStockHistory(unique_stocks)
-
-    # read input
+def readInput():
+    """Reads input from input.txt
+    up_end : Maximum positive % of change before exiting the stock
+    lo_end : Maximum negative % of change before exiting the stock
+    budget_per_stock : Maximum budget per stock that can be used.
+    maximum_overall_budget : Maximum budget available for all the stocks
+                             combined
+    start_date : start date (%d/%m/%Y)
+    end_date : end date (%d/%m/%Y)
+    """
     up_end = int(input())
     lo_end = int(input())
     budget_per_stock = int(input())
+    maximum_overall_budget = int(input())
+    start_date = str(input())
+    end_date = str(input())
+    csv_name = str(input())
+    return up_end, lo_end, budget_per_stock, maximum_overall_budget,\
+           start_date, end_date, csv_name
 
-    for dt in sorted(date_to_stocks.keys()):
+def run():
+    # read input
+    up_end, lo_end, budget_per_stock, maximum_overall_budget,\
+        start_date, end_date, csv_name = readInput()
+    # create ledger
+    start_date = datetime.strptime(start_date, "%d/%m/%Y")
+    end_date = datetime.strptime(end_date, "%d/%m/%Y")
+    strategy_name = csv_name.split(".")[0].split("/")[2]
+    ledger = Ledger("strategy_name", maximum_overall_budget)
+    date_to_stocks, unique_stocks = readStrategyOutput(csv_name, start_date, end_date)
+    stock_history = getStockHistory(unique_stocks)
+    dt = start_date
+    while dt <= end_date:
         start_dt = dt
         end_dt = start_dt + timedelta(days=1)
         logging.debug("processing date : " + str(dt) + " and # holdings : " + \
@@ -100,9 +120,9 @@ def run():
             curr_stock = stock_history[stock]
             logging.debug("Processing stock " + stock + " with # ts : " + \
                           str(len(curr_stock.keys())))
-            for ts in sorted(curr_stock.keys()):
+            keys = list(curr_stock.keys())
+            for ts in sorted(keys[int(len(keys)/2):]):
                 curr_time = datetime.fromtimestamp(ts)
-                logging.debug(curr_time)
                 if curr_time < start_dt:
                     continue
                 elif curr_time >= end_dt:
@@ -133,34 +153,48 @@ def run():
                     logging.info("Exit condition failed for " + stock + \
                                  " curr-price : " + str(curr_pos.closev) + \
                                  " buy-price : " + str(order.price))
+        if dt not in date_to_stocks:
+            dt += timedelta(days=1)
+            continue
         stocks = date_to_stocks[dt]
-        print(stocks)
+        logging.info("stocks: " + str(stocks))
         for stock in stocks:
             # call yhf
             curr_stock = stock_history[stock]
             pos = None
             curr_time = None
+            daily_volume = 0
             for ts in sorted(curr_stock.keys()):
                 curr_time = datetime.fromtimestamp(ts)
                 if curr_time < start_dt:
                     continue
                 elif curr_time >= end_dt:
                     break
+                if curr_stock[ts].volume != None:
+                    daily_volume += curr_stock[ts].volume
+                    logging.info("Volume is not none")
+                else:
+                    logging.info("Volume is none")
                 pos = curr_stock[ts]
+            logging.info("volume for stock: " + stock + " at: " + str(ts) + " is " + str(daily_volume))
             if pos is not None and pos.closev is not None:
-                quantity = budget_per_stock/pos.closev
+                quantity = floor(budget_per_stock/pos.closev)
                 ledger.placeOrder(stock, "BUY", pos.time, pos.closev, quantity)
                 logging.debug("Buy : " + stock)
             else:
                 logging.error("Couldn't get price")
-
+        dt += timedelta(days=1)
     print("capital utilized : " + \
           str(int(ledger.init_capital - ledger.min_capital)))
     print("profit/loss: " + str(int(ledger.profit_or_loss)))
+    print("profit/lost %: " + str((int(ledger.profit_or_loss) * 100)/int(ledger.init_capital - ledger.min_capital)))
+    print("num_sells: " + str(ledger.num_sells) + " num_losses: " + str(ledger.num_losses))
+    print("loss % : " + str((ledger.num_losses * 100)/ledger.num_sells))
     if not exists("output"):
         os.makedirs("output")
-    ledger.printOrders("output/orders.txt")
-    ledger.printHoldings("output/holdings.txt")
+    ledger.printOrders("output/orders_{}.txt".format(strategy_name))
+    ledger.printHoldings("output/holdings_{}.txt".format(strategy_name))
+    ledger.printPlStatement("output/pl_statement_{}.txt".format(strategy_name))
 
 if __name__ == "__main__":
     run()
