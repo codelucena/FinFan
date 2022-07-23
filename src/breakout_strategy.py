@@ -54,20 +54,28 @@ def getStockHistory(unique_stocks):
         logging.info("reading " + stock)
         data = json.load(stock_file)
         timestamp_list = data["chart"]["result"][0]["timestamp"]
-        volume_list = data["chart"]["result"][0]["indicators"]["quote"][0]["volume"]
-        close_list = data["chart"]["result"][0]["indicators"]["quote"][0]["close"]
-        open_list = data["chart"]["result"][0]["indicators"]["quote"][0]["open"]  
+        volume_list = data["chart"]["result"][0]["indicators"]\
+                          ["quote"][0]["volume"]
+        close_list = data["chart"]["result"][0]["indicators"]\
+                         ["quote"][0]["close"]
+        open_list = data["chart"]["result"][0]["indicators"]\
+                        ["quote"][0]["open"]  
         num_entries = len(data["chart"]["result"][0]["timestamp"])
-        num_indicators = len(data["chart"]["result"][0]["indicators"]["quote"][0]["volume"])
+        num_indicators = len(data["chart"]["result"][0]["indicators"]\
+                                 ["quote"][0]["volume"])
         assert(num_entries == num_indicators)
         for i in range(num_entries):
             ts = datetime.fromtimestamp(timestamp_list[i])
-            stock_pos = StockPosition(stock, open_list[i], close_list[i], volume_list[i], ts)
+            stock_pos = StockPosition(stock,
+                                      open_list[i],
+                                      close_list[i],
+                                      volume_list[i],
+                                      ts)
             stock_history[stock][timestamp_list[i]] = stock_pos
     return stock_history
 
 def run():
-    start_date = datetime.strptime("10/03/2022", "%d/%m/%Y")
+    start_date = datetime.strptime("1/02/2022", "%d/%m/%Y")
     end_date = datetime.strptime("01/07/2022", "%d/%m/%Y")
 
     ledger = Ledger("breakout")
@@ -82,14 +90,16 @@ def run():
     for dt in sorted(date_to_stocks.keys()):
         start_dt = dt
         end_dt = start_dt + timedelta(days=1)
-        logging.debug("processing date : " + str(dt) + " and # holdings : " + str(len(ledger.stocks_to_holdings.keys())))
+        logging.debug("processing date : " + str(dt) + " and # holdings : " + \
+                      str(len(ledger.stocks_to_holdings.keys())))
         curr_holdings = copy.deepcopy(ledger.stocks_to_holdings)
         for stock in curr_holdings.keys():
             order = curr_holdings[stock]
             # should we sell this stock according to our strategy
             assert(order.order_type == "BUY")
             curr_stock = stock_history[stock]
-            logging.debug("Processing stock " + stock + " with # ts : " + str(len(curr_stock.keys())))
+            logging.debug("Processing stock " + stock + " with # ts : " + \
+                          str(len(curr_stock.keys())))
             for ts in sorted(curr_stock.keys()):
                 curr_time = datetime.fromtimestamp(ts)
                 logging.debug(curr_time)
@@ -114,11 +124,15 @@ def run():
                     (1 - lo_end * 0.01) * order.price
                 last_pos = curr_pos
                 if exit_condition:
-                    logging.info("Exit condition met for " + stock + " curr-price : " + str(curr_pos.closev) + " buy-price : " + str(order.price))
+                    logging.info("Exit condition met for " + stock + \
+                                 " curr-price : " + str(curr_pos.closev) + \
+                                 " buy-price : " + str(order.price))
                     ledger.placeOrder(stock, "SELL", curr_time, curr_pos.closev)
                     break
                 else:
-                    logging.info("Exit condition failed for " + stock + " curr-price : " + str(curr_pos.closev) + " buy-price : " + str(order.price)) 
+                    logging.info("Exit condition failed for " + stock + \
+                                 " curr-price : " + str(curr_pos.closev) + \
+                                 " buy-price : " + str(order.price))
         stocks = date_to_stocks[dt]
         print(stocks)
         for stock in stocks:
@@ -140,7 +154,8 @@ def run():
             else:
                 logging.error("Couldn't get price")
 
-    print("capital utilized : " + str(int(ledger.init_capital - ledger.min_capital)))
+    print("capital utilized : " + \
+          str(int(ledger.init_capital - ledger.min_capital)))
     print("profit/loss: " + str(int(ledger.profit_or_loss)))
     if not exists("output"):
         os.makedirs("output")
