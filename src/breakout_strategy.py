@@ -1,5 +1,6 @@
 from datetime import datetime
 from datetime import timedelta
+from math import floor
 from os.path import exists
 from ledger import Ledger, StockPosition
 import copy
@@ -74,19 +75,35 @@ def getStockHistory(unique_stocks):
             stock_history[stock][timestamp_list[i]] = stock_pos
     return stock_history
 
-def run():
-    start_date = datetime.strptime("1/02/2022", "%d/%m/%Y")
-    end_date = datetime.strptime("01/07/2022", "%d/%m/%Y")
-
-    ledger = Ledger("breakout")
-    date_to_stocks, unique_stocks = readStrategyOutput(start_date, end_date)
-    stock_history = getStockHistory(unique_stocks)
-
-    # read input
+def readInput():
+    """Reads input from input.txt
+    up_end : Maximum positive % of change before exiting the stock
+    lo_end : Maximum negative % of change before exiting the stock
+    budget_per_stock : Maximum budget per stock that can be used.
+    maximum_overall_budget : Maximum budget available for all the stocks
+                             combined
+    start_date : start date (%d/%m/%Y)
+    end_date : end date (%d/%m/%Y)
+    """
     up_end = int(input())
     lo_end = int(input())
     budget_per_stock = int(input())
+    maximum_overall_budget = int(input())
+    start_date = str(input())
+    end_date = str(input())
+    return up_end, lo_end, budget_per_stock, maximum_overall_budget,\
+           start_date, end_date
 
+def run():
+    # read input
+    up_end, lo_end, budget_per_stock, maximum_overall_budget,\
+        start_date, end_date = readInput()
+    # create ledger
+    start_date = datetime.strptime(start_date, "%d/%m/%Y")
+    end_date = datetime.strptime(end_date, "%d/%m/%Y")
+    ledger = Ledger("breakout", maximum_overall_budget)
+    date_to_stocks, unique_stocks = readStrategyOutput(start_date, end_date)
+    stock_history = getStockHistory(unique_stocks)
     for dt in sorted(date_to_stocks.keys()):
         start_dt = dt
         end_dt = start_dt + timedelta(days=1)
@@ -134,7 +151,6 @@ def run():
                                  " curr-price : " + str(curr_pos.closev) + \
                                  " buy-price : " + str(order.price))
         stocks = date_to_stocks[dt]
-        print(stocks)
         for stock in stocks:
             # call yhf
             curr_stock = stock_history[stock]
@@ -148,7 +164,7 @@ def run():
                     break
                 pos = curr_stock[ts]
             if pos is not None and pos.closev is not None:
-                quantity = budget_per_stock/pos.closev
+                quantity = floor(budget_per_stock/pos.closev)
                 ledger.placeOrder(stock, "BUY", pos.time, pos.closev, quantity)
                 logging.debug("Buy : " + stock)
             else:
@@ -157,6 +173,7 @@ def run():
     print("capital utilized : " + \
           str(int(ledger.init_capital - ledger.min_capital)))
     print("profit/loss: " + str(int(ledger.profit_or_loss)))
+    print("profit/lost %: " + str((int(ledger.profit_or_loss) * 100)/int(ledger.init_capital - ledger.min_capital)))
     if not exists("output"):
         os.makedirs("output")
     ledger.printOrders("output/orders.txt")
