@@ -7,6 +7,12 @@ class StockPosition:
         self.closev = closev
         self.volume = volume
         self.time = timestamp
+    
+    def print():
+        s += ""
+        self += "stock : " + self.stock + "\n"
+        self += "volume : " + self.volume + "\n" 
+        self += "colsev: " + self.colsev + "\n"
 
 class Order:
     order_time = None
@@ -52,6 +58,9 @@ class Ledger:
         self.capital = capital
         self.init_capital = capital
         self.min_capital = 100000000
+        self.num_losses = 0
+        self.num_sells = 0
+        self.pl_statement = []
 
     def printOrders(self, filename):
         f = open(filename, 'w')
@@ -71,6 +80,16 @@ class Ledger:
         for stock in self.stocks_to_holdings.keys():
             r += "*" * 100 + "\n"
             r += self.stocks_to_holdings[stock].ToString()
+        f.write(r)
+        f.close()
+
+    def printPlStatement(self, filename):
+        f = open(filename, 'w')
+        r = ""
+        for stock in self.pl_statement:
+            r += stock[0] + ","
+            r += str(stock[1]) + ","
+            r += str(stock[2]) + "\n"
         f.write(r)
         f.close()
 
@@ -104,18 +123,24 @@ class Ledger:
             if quantity == -1:
                 sell_quantity = self.stocks_to_holdings[stock].quantity
             curr_value = sell_quantity * price
+            if curr_value < self.stocks_to_holdings[stock].value:
+                self.num_losses += 1
+            self.num_sells += 1
             self.profit_or_loss += curr_value - self.stocks_to_holdings[stock].value
             self.capital +=  curr_value
+            self.pl_statement += [[stock, curr_value - self.stocks_to_holdings[stock].value, order_time]]
             if curr_value - self.stocks_to_holdings[stock].value > 0:
                 logging.debug("Exit for a profit of " \
                     + str(curr_value - self.stocks_to_holdings[stock].value) \
                     + " curr_value: " + str(curr_value) \
-                    + " old: " + str(self.stocks_to_holdings[stock].value))
+                    + " old: " + str(self.stocks_to_holdings[stock].value) \
+                    + " stock: " + stock)
             else:
                 logging.debug("Exit for a loss of " \
                     + str(curr_value - self.stocks_to_holdings[stock].value) \
                     + " curr_value: " + str(curr_value) \
-                    + " old: " + str(self.stocks_to_holdings[stock].value))
+                    + " old: " + str(self.stocks_to_holdings[stock].value) \
+                    + " stock: " + stock)
             # add to list of orders
             sell_order = Order(stock, "SELL", order_time, price, sell_quantity)
             if stock not in self.stocks_to_orders:
