@@ -72,7 +72,7 @@ def getStockHistory(unique_stocks):
                                       close_list[i],
                                       volume_list[i],
                                       ts)
-            stock_history[stock][timestamp_list[i]] = stock_pos
+            stock_history[stock][ts] = stock_pos
     return stock_history
 
 def readInput():
@@ -95,6 +95,24 @@ def readInput():
     return up_end, lo_end, budget_per_stock, maximum_overall_budget,\
            start_date, end_date, csv_name
 
+def getStocks90dMax(stocks, stock_history, date):
+    """Returns map with 90 days max for the stocks given
+    """
+    stock_90d_max = {}
+    for stock in stocks:
+        stock_90d_max[stock] = 0
+        keys = stock_history[stock].keys()
+        curr_time = date - timedelta(days=90) + timedelta(hours=9) + timedelta(minutes=15)
+        while curr_time <= date:
+            if curr_time in stock_history[stock]:
+                if stock_history[stock][curr_time].closev is None:
+                    logging.error("closev is none for : " + stock + " at " + str(curr_time))
+                else:
+                    stock_90d_max[stock] = max(stock_90d_max[stock], \
+                                            stock_history[stock][curr_time].closev)
+            curr_time += timedelta(hours=1)
+    return stock_90d_max
+
 def run():
     # read input
     up_end, lo_end, budget_per_stock, maximum_overall_budget,\
@@ -108,82 +126,66 @@ def run():
     stock_history = getStockHistory(unique_stocks)
     dt = start_date
     while dt <= end_date:
-        start_dt = dt
-        end_dt = start_dt + timedelta(days=1)
         logging.debug("processing date : " + str(dt) + " and # holdings : " + \
                       str(len(ledger.stocks_to_holdings.keys())))
-        curr_holdings = copy.deepcopy(ledger.stocks_to_holdings)
-        for stock in curr_holdings.keys():
-            order = curr_holdings[stock]
-            # should we sell this stock according to our strategy
-            assert(order.order_type == "BUY")
-            curr_stock = stock_history[stock]
-            logging.debug("Processing stock " + stock + " with # ts : " + \
-                          str(len(curr_stock.keys())))
-            keys = list(curr_stock.keys())
-            for ts in sorted(keys[int(len(keys)/2):]):
-                curr_time = datetime.fromtimestamp(ts)
-                if curr_time < start_dt:
+        
+        stocks_suggested = []
+        if dt in date_to_stocks:
+            stocks_suggested = date_to_stocks[dt]
+        logging.info("get stocks 90 d max")
+        stocks_90d_max = getStocks90dMax(stocks_suggested, stock_history, dt)
+        curr_time = dt + timedelta(hours=9) + timedelta(minutes=15)
+        end_time = dt + timedelta(hours=15) + timedelta(minutes=15)
+        while curr_time <= end_time:
+            for stock in stocks_suggested:
+                logging.info("processing " + stock + " at " + str(curr_time))
+                if curr_time not in stock_history[stock]:
+                    logging.debug(str(curr_time) + " not in " + stock)
                     continue
-                elif curr_time >= end_dt:
-                    break
-                curr_pos = curr_stock[ts]
-                def validate(pos):
-                    if pos.closev is None:
-                        logging.debug("closev is none : " + pos.stock)
-                        return False
-                    if pos.volume is None:
-                        logging.debug("volume is none : " + pos.stock)
-                        return False
-                    return True
-                if not validate(curr_pos):
-                    logging.info("Validation failed for " + stock)
-                    continue;
+                curr_pos = stock_history[stock][curr_time]
+                if curr_pos.closev is None:
+                    logging.info("closev is none for : " + stock + " at " + str(curr_time))
+                elif curr_pos.closev >= stocks_90d_max[stock] and curr_pos.closev > 10 or True:
+                    quantity = floor(budget_per_stock/curr_pos.closev)
+                    logging.info("Buy stock : " + stock)
+                    ledger.placeOrder(stock, "BUY", curr_pos.time,
+                                      curr_pos.closev, quantity)
+                else:
+                    logging.info("90dmax not reached for " + stock + " at " \
+                                 + str(curr_time) + " 90dm: " \
+                                 + str(stocks_90d_max[stock]) \
+                                 + " val: " + str(curr_pos.closev))
+            curr_holdings = copy.deepcopy(ledger.stocks_to_holdings)
+            for stock in curr_holdings.keys():
+                order = curr_holdings[stock]
+                logging.info("processing " + stock + " at " + str(curr_time))
+                if curr_time not in stock_history[stock]:
+                    logging.info(stock + " not found at " + str(curr_time))
+                    continue
+                curr_pos = stock_history[stock][curr_time]
+                if curr_pos.closev is None:
+                    logging.info("closev is none for : " + stock + " at " + str(curr_time))
+                    continue
                 exit_condition = curr_pos.closev > \
                     (1 + up_end * 0.01) * order.price or curr_pos.closev < \
                     (1 - lo_end * 0.01) * order.price
                 last_pos = curr_pos
                 if exit_condition:
                     logging.info("Exit condition met for " + stock + \
-                                 " curr-price : " + str(curr_pos.closev) + \
-                                 " buy-price : " + str(order.price))
+                                    " curr-price : " + str(curr_pos.closev) + \
+                                    " buy-price : " + str(order.price))
                     ledger.placeOrder(stock, "SELL", curr_time, curr_pos.closev)
                     break
                 else:
                     logging.info("Exit condition failed for " + stock + \
-                                 " curr-price : " + str(curr_pos.closev) + \
-                                 " buy-price : " + str(order.price))
-        if dt not in date_to_stocks:
-            dt += timedelta(days=1)
-            continue
-        stocks = date_to_stocks[dt]
-        logging.info("stocks: " + str(stocks))
-        for stock in stocks:
-            # call yhf
-            curr_stock = stock_history[stock]
-            pos = None
-            curr_time = None
-            daily_volume = 0
-            for ts in sorted(curr_stock.keys()):
-                curr_time = datetime.fromtimestamp(ts)
-                if curr_time < start_dt:
-                    continue
-                elif curr_time >= end_dt:
-                    break
-                if curr_stock[ts].volume != None:
-                    daily_volume += curr_stock[ts].volume
-                    logging.info("Volume is not none")
-                else:
-                    logging.info("Volume is none")
-                pos = curr_stock[ts]
-            logging.info("volume for stock: " + stock + " at: " + str(ts) + " is " + str(daily_volume))
-            if pos is not None and pos.closev is not None:
-                quantity = floor(budget_per_stock/pos.closev)
-                ledger.placeOrder(stock, "BUY", pos.time, pos.closev, quantity)
-                logging.debug("Buy : " + stock)
-            else:
-                logging.error("Couldn't get price")
+                                    " curr-price : " + str(curr_pos.closev) + \
+                                    " buy-price : " + str(order.price))
+            curr_time += timedelta(hours=1)
+        for stock in stocks_suggested:
+            if stock not in ledger.stocks_to_holdings:
+                logging.info("Stock not bought " + stock + " at " + str(dt) + " 90dm " + str(stocks_90d_max[stock]))
         dt += timedelta(days=1)
+
     print("capital utilized : " + \
           str(int(ledger.init_capital - ledger.min_capital)))
     print("profit/loss: " + str(int(ledger.profit_or_loss)))
@@ -194,7 +196,7 @@ def run():
         os.makedirs("output")
     ledger.printOrders("output/orders_{}.txt".format(strategy_name))
     ledger.printHoldings("output/holdings_{}.txt".format(strategy_name))
-    ledger.printPlStatement("output/pl_statement_{}.txt".format(strategy_name))
+    ledger.printPlStatement("output/pl_statement_{}.csv".format(strategy_name))
 
 if __name__ == "__main__":
     run()

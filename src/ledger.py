@@ -8,7 +8,7 @@ class StockPosition:
         self.volume = volume
         self.time = timestamp
     
-    def print():
+    def DebugString():
         s += ""
         self += "stock : " + self.stock + "\n"
         self += "volume : " + self.volume + "\n" 
@@ -29,7 +29,7 @@ class Order:
         self.stock = stock
         self.value = quantity * price
 
-    def ToString(self):
+    def DebugString(self):
         s = ""
         s += "stock : " + self.stock + "\n"
         s += "order_type: " + self.order_type + "\n"
@@ -70,7 +70,7 @@ class Ledger:
             r += stock + ":\n"
             for order in self.stocks_to_orders[stock]:
                 r += "*" * 50 + "\n"
-                r += order.ToString()
+                r += order.DebugString()
         f.write(r)
         f.close()
 
@@ -79,7 +79,7 @@ class Ledger:
         r = ""
         for stock in self.stocks_to_holdings.keys():
             r += "*" * 100 + "\n"
-            r += self.stocks_to_holdings[stock].ToString()
+            r += self.stocks_to_holdings[stock].DebugString()
         f.write(r)
         f.close()
 
@@ -100,6 +100,7 @@ class Ledger:
         if order_type == "BUY":
             buy_order = Order(stock, "BUY", order_time, price, quantity)
             if self.capital < price * quantity:
+                logging.info("Couldn't buy stock " + stock + " max capital reached")
                 return False
             if stock not in self.stocks_to_holdings:
                 logging.info("Buying stock " + stock + " for " + str(price) + "*" + str(quantity) + " at " + str(order_time))
