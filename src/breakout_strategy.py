@@ -144,8 +144,10 @@ def run():
                     continue
                 curr_pos = stock_history[stock][curr_time]
                 if curr_pos.closev is None:
-                    logging.info("closev is none for : " + stock + " at " + str(curr_time))
-                elif curr_pos.closev >= stocks_90d_max[stock] and curr_pos.closev > 10 or True:
+                    logging.info("closev is none for : " + stock + " at "\
+                                 + str(curr_time))
+                elif curr_pos.closev >= stocks_90d_max[stock] and \
+                        curr_pos.closev > 10:
                     quantity = floor(budget_per_stock/curr_pos.closev)
                     logging.info("Buy stock : " + stock)
                     ledger.placeOrder(stock, "BUY", curr_pos.time,
@@ -164,7 +166,8 @@ def run():
                     continue
                 curr_pos = stock_history[stock][curr_time]
                 if curr_pos.closev is None:
-                    logging.info("closev is none for : " + stock + " at " + str(curr_time))
+                    logging.info("closev is none for : " + stock + " at "\
+                                  + str(curr_time))
                     continue
                 exit_condition = curr_pos.closev > \
                     (1 + up_end * 0.01) * order.price or curr_pos.closev < \
@@ -183,14 +186,17 @@ def run():
             curr_time += timedelta(hours=1)
         for stock in stocks_suggested:
             if stock not in ledger.stocks_to_holdings:
-                logging.info("Stock not bought " + stock + " at " + str(dt) + " 90dm " + str(stocks_90d_max[stock]))
+                logging.info("Stock not bought " + stock + " at " + str(dt)\
+                              + " 90dm " + str(stocks_90d_max[stock]))
         dt += timedelta(days=1)
 
     print("capital utilized : " + \
           str(int(ledger.init_capital - ledger.min_capital)))
     print("profit/loss: " + str(int(ledger.profit_or_loss)))
-    print("profit/lost %: " + str((int(ledger.profit_or_loss) * 100)/int(ledger.init_capital - ledger.min_capital)))
-    print("num_sells: " + str(ledger.num_sells) + " num_losses: " + str(ledger.num_losses))
+    print("profit/lost %: " + str((int(ledger.profit_or_loss) * 100)/\
+                              int(ledger.init_capital - ledger.min_capital)))
+    print("num_sells: " + str(ledger.num_sells) + " num_losses: "\
+          + str(ledger.num_losses))
     print("loss % : " + str((ledger.num_losses * 100)/ledger.num_sells))
     if not exists("output"):
         os.makedirs("output")
