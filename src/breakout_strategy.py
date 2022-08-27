@@ -136,6 +136,7 @@ def run():
         stocks_90d_max = getStocks90dMax(stocks_suggested, stock_history, dt)
         curr_time = dt + timedelta(hours=9) + timedelta(minutes=15)
         end_time = dt + timedelta(hours=15) + timedelta(minutes=15)
+        bought_today = []
         while curr_time <= end_time:
             for stock in stocks_suggested:
                 logging.info("processing " + stock + " at " + str(curr_time))
@@ -147,11 +148,12 @@ def run():
                     logging.info("closev is none for : " + stock + " at "\
                                  + str(curr_time))
                 elif curr_pos.closev >= stocks_90d_max[stock] and \
-                        curr_pos.closev > 10:
+                        curr_pos.closev > 10 and stock not in bought_today:
                     quantity = floor(budget_per_stock/curr_pos.closev)
                     logging.info("Buy stock : " + stock)
                     ledger.placeOrder(stock, "BUY", curr_pos.time,
                                       curr_pos.closev, quantity)
+                    bought_today += [stock]
                 else:
                     logging.info("90dmax not reached for " + stock + " at " \
                                  + str(curr_time) + " 90dm: " \
