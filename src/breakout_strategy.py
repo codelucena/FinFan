@@ -132,7 +132,6 @@ def run():
         stocks_suggested = []
         if dt in date_to_stocks:
             stocks_suggested = date_to_stocks[dt]
-        logging.info("get stocks 90 d max")
         stocks_90d_max = getStocks90dMax(stocks_suggested, stock_history, dt)
         curr_time = dt + timedelta(hours=9) + timedelta(minutes=15)
         end_time = dt + timedelta(hours=15) + timedelta(minutes=15)
@@ -148,12 +147,16 @@ def run():
                     logging.info("closev is none for : " + stock + " at "\
                                  + str(curr_time))
                 elif curr_pos.closev >= stocks_90d_max[stock] and \
-                        curr_pos.closev > 10 and stock not in bought_today:
-                    quantity = floor(budget_per_stock/curr_pos.closev)
-                    logging.info("Buy stock : " + stock)
-                    ledger.placeOrder(stock, "BUY", curr_pos.time,
-                                      curr_pos.closev, quantity)
-                    bought_today += [stock]
+                        curr_pos.closev > 10 and (stock not in bought_today):
+                    if curr_pos.closev != curr_pos.openv:
+                        quantity = floor(budget_per_stock/curr_pos.closev)
+                        logging.info("Buy stock : " + stock)
+                        ledger.placeOrder(stock, "BUY", curr_pos.time,
+                                        curr_pos.closev, quantity)
+                        bought_today += [stock]
+                    else:
+                        logging.info("Close is same as open " + str(curr_pos.closev)\
+                                      + " for " + stock)
                 else:
                     logging.info("90dmax not reached for " + stock + " at " \
                                  + str(curr_time) + " 90dm: " \
@@ -171,9 +174,9 @@ def run():
                     logging.info("closev is none for : " + stock + " at "\
                                   + str(curr_time))
                     continue
-                exit_condition = curr_pos.closev > \
-                    (1 + up_end * 0.01) * order.price or curr_pos.closev < \
-                    (1 - lo_end * 0.01) * order.price
+                exit_condition = curr_pos.closev != curr_pos.openv and \
+                    (curr_pos.closev > (1 + up_end * 0.01) * order.price or \
+                     curr_pos.closev < (1 - lo_end * 0.01) * order.price)
                 last_pos = curr_pos
                 if exit_condition:
                     logging.info("Exit condition met for " + stock + \
