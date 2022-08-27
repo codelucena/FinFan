@@ -61,6 +61,7 @@ class Ledger:
         self.num_losses = 0
         self.num_sells = 0
         self.pl_statement = []
+        self.cap_util_statement = []
 
     def printOrders(self, filename):
         f = open(filename, 'w')
@@ -90,6 +91,15 @@ class Ledger:
             r += stock[0] + ","
             r += str(stock[1]) + ","
             r += str(stock[2]) + "\n"
+        f.write(r)
+        f.close()
+    
+    def printCaptialUtilizedStatement(self, filename):
+        f = open(filename, 'w')
+        r = ""
+        for cap in self.cap_util_statement:
+            r += str(cap[0]) + ","
+            r += "{:.2f}".format(cap[1]) + "\n"
         f.write(r)
         f.close()
 

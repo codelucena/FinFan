@@ -138,22 +138,28 @@ def run():
         bought_today = []
         while curr_time <= end_time:
             for stock in stocks_suggested:
-                logging.info("processing " + stock + " at " + str(curr_time))
+                logging.info("BUY: processing " + stock + " at " + str(curr_time))
                 if curr_time not in stock_history[stock]:
                     logging.debug(str(curr_time) + " not in " + stock)
                     continue
                 curr_pos = stock_history[stock][curr_time]
+                if stock in bought_today:
+                    logging.debug("Already bought " + stock)
+                    continue
                 if curr_pos.closev is None:
                     logging.info("closev is none for : " + stock + " at "\
                                  + str(curr_time))
                 elif curr_pos.closev >= stocks_90d_max[stock] and \
-                        curr_pos.closev > 10 and (stock not in bought_today):
+                        curr_pos.closev > 10:
                     if curr_pos.closev != curr_pos.openv:
                         quantity = floor(budget_per_stock/curr_pos.closev)
                         logging.info("Buy stock : " + stock)
-                        ledger.placeOrder(stock, "BUY", curr_pos.time,
-                                        curr_pos.closev, quantity)
-                        bought_today += [stock]
+                        if ledger.placeOrder(stock, "BUY", curr_pos.time,
+                                        curr_pos.closev, quantity) == True:
+                            bought_today += [stock]
+                            logging.info("Successfully bought " + stock)
+                        else:
+                            logging.info("Couldn't buy stock : " + stock)
                     else:
                         logging.info("Close is same as open " + str(curr_pos.closev)\
                                       + " for " + stock)
@@ -165,7 +171,7 @@ def run():
             curr_holdings = copy.deepcopy(ledger.stocks_to_holdings)
             for stock in curr_holdings.keys():
                 order = curr_holdings[stock]
-                logging.info("processing " + stock + " at " + str(curr_time))
+                logging.info("SELL: processing " + stock + " at " + str(curr_time))
                 if curr_time not in stock_history[stock]:
                     logging.info(stock + " not found at " + str(curr_time))
                     continue
@@ -182,8 +188,9 @@ def run():
                     logging.info("Exit condition met for " + stock + \
                                     " curr-price : " + str(curr_pos.closev) + \
                                     " buy-price : " + str(order.price))
-                    ledger.placeOrder(stock, "SELL", curr_time, curr_pos.closev)
-                    break
+                    if ledger.placeOrder(stock, "SELL", curr_time, curr_pos.closev):
+                        logging.info("Succefully sold " + stock)
+                    continue
                 else:
                     logging.info("Exit condition failed for " + stock + \
                                     " curr-price : " + str(curr_pos.closev) + \
@@ -193,8 +200,8 @@ def run():
             if stock not in ledger.stocks_to_holdings:
                 logging.info("Stock not bought " + stock + " at " + str(dt)\
                               + " 90dm " + str(stocks_90d_max[stock]))
+        ledger.cap_util_statement.append([str(dt), ledger.capital])
         dt += timedelta(days=1)
-
     print("capital utilized : " + \
           str(int(ledger.init_capital - ledger.min_capital)))
     print("profit/loss: " + str(int(ledger.profit_or_loss)))
@@ -208,6 +215,7 @@ def run():
     ledger.printOrders("output/orders_{}.txt".format(strategy_name))
     ledger.printHoldings("output/holdings_{}.txt".format(strategy_name))
     ledger.printPlStatement("output/pl_statement_{}.csv".format(strategy_name))
+    ledger.printCaptialUtilizedStatement("output/cap_remaining_daily_{}.csv".format(strategy_name))
 
 if __name__ == "__main__":
     run()
