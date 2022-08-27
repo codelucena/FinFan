@@ -174,9 +174,9 @@ def run():
                     logging.info("closev is none for : " + stock + " at "\
                                   + str(curr_time))
                     continue
-                exit_condition = curr_pos.closev != curr_pos.openv and \
-                    (curr_pos.closev > (1 + up_end * 0.01) * order.price or \
-                     curr_pos.closev < (1 - lo_end * 0.01) * order.price)
+                exit_condition = \
+                    curr_pos.closev > (1 + up_end * 0.01) * order.price or \
+                    curr_pos.closev < (1 - lo_end * 0.01) * order.price
                 last_pos = curr_pos
                 if exit_condition:
                     logging.info("Exit condition met for " + stock + \
