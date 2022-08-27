@@ -1,18 +1,21 @@
 import logging
 
 class StockPosition:
-    def __init__(self, stock, openv, closev, volume, timestamp):
+    def __init__(self, stock, openv, closev, volume, high, timestamp):
         self.stock = stock
         self.openv = openv
         self.closev = closev
         self.volume = volume
+        self.high = high
         self.time = timestamp
     
     def DebugString():
         s += ""
-        self += "stock : " + self.stock + "\n"
-        self += "volume : " + self.volume + "\n" 
-        self += "colsev: " + self.colsev + "\n"
+        s += "stock : " + self.stock + "\n"
+        s += "volume : " + self.volume + "\n" 
+        s += "colsev: " + self.colsev + "\n"
+        s += "high: " + self.high + "\n"
+        return s
 
 class Order:
     order_time = None
@@ -60,8 +63,10 @@ class Ledger:
         self.min_capital = 100000000
         self.num_losses = 0
         self.num_sells = 0
+        self.num_buys = 0
         self.pl_statement = []
         self.cap_util_statement = []
+        self.monthly_profit_statement = dict()
 
     def printOrders(self, filename):
         f = open(filename, 'w')
@@ -118,6 +123,7 @@ class Ledger:
             else:
                 logging.info("Error: stock already present in holdings")
                 return False
+            self.num_buys += 1
             if stock not in self.stocks_to_orders:
                 self.stocks_to_orders[stock] = [buy_order]
             else:
@@ -139,7 +145,7 @@ class Ledger:
             self.num_sells += 1
             self.profit_or_loss += curr_value - self.stocks_to_holdings[stock].value
             self.capital +=  curr_value
-            self.pl_statement += [[stock, curr_value - self.stocks_to_holdings[stock].value, order_time]]
+            self.pl_statement.append([stock, curr_value - self.stocks_to_holdings[stock].value, order_time])
             if curr_value - self.stocks_to_holdings[stock].value > 0:
                 logging.debug("Exit for a profit of " \
                     + str(curr_value - self.stocks_to_holdings[stock].value) \

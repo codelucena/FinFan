@@ -3,6 +3,8 @@ from datetime import timedelta
 from math import floor
 from os.path import exists
 from ledger import Ledger, StockPosition
+import matplotlib.pyplot as plt
+import numpy as np
 import copy
 import logging
 import os
@@ -60,7 +62,9 @@ def getStockHistory(unique_stocks):
         close_list = data["chart"]["result"][0]["indicators"]\
                          ["quote"][0]["close"]
         open_list = data["chart"]["result"][0]["indicators"]\
-                        ["quote"][0]["open"]  
+                        ["quote"][0]["open"]
+        high_list = data["chart"]["result"][0]["indicators"]\
+                        ["quote"][0]["high"]
         num_entries = len(data["chart"]["result"][0]["timestamp"])
         num_indicators = len(data["chart"]["result"][0]["indicators"]\
                                  ["quote"][0]["volume"])
@@ -71,6 +75,7 @@ def getStockHistory(unique_stocks):
                                       open_list[i],
                                       close_list[i],
                                       volume_list[i],
+                                      high_list[i],
                                       ts)
             stock_history[stock][ts] = stock_pos
     return stock_history
@@ -95,23 +100,38 @@ def readInput():
     return up_end, lo_end, budget_per_stock, maximum_overall_budget,\
            start_date, end_date, csv_name
 
-def getStocks90dMax(stocks, stock_history, date):
+def getStocksNDayMax(num_days, stocks, stock_history, date):
     """Returns map with 90 days max for the stocks given
     """
-    stock_90d_max = {}
+    stock_n_day_max = {}
     for stock in stocks:
-        stock_90d_max[stock] = 0
+        stock_n_day_max[stock] = 0
         keys = stock_history[stock].keys()
-        curr_time = date - timedelta(days=90) + timedelta(hours=9) + timedelta(minutes=15)
-        while curr_time <= date:
+        curr_time = date - timedelta(days=num_days) + timedelta(hours=9) + timedelta(minutes=15)
+        while curr_time < date - timedelta(days=1):
             if curr_time in stock_history[stock]:
-                if stock_history[stock][curr_time].closev is None:
-                    logging.error("closev is none for : " + stock + " at " + str(curr_time))
+                if stock_history[stock][curr_time].high is None:
+                    logging.error("high is none for : " + stock + " at " + str(curr_time))
                 else:
-                    stock_90d_max[stock] = max(stock_90d_max[stock], \
-                                            stock_history[stock][curr_time].closev)
+                    stock_n_day_max[stock] = max(stock_n_day_max[stock], \
+                                                stock_history[stock][curr_time].high)
             curr_time += timedelta(hours=1)
-    return stock_90d_max
+    return stock_n_day_max
+
+
+def generateGraph(times, prices, entry_points, exit_points, stock):
+    """Generates a graph with entry and exit points marked
+    """
+    f = plt.figure()
+    xpoints = np.array(times)
+    ypoints = np.array(prices)
+    plt.plot(xpoints, ypoints, linewidth=1, color="green", alpha=0.2)
+    for entry in entry_points:
+        plt.scatter(entry[0], entry[1], marker="^", color="blue", s=12)
+    for exit in exit_points:
+        plt.scatter(exit[0], exit[1], marker="X", color="red", s=12)
+    plt.savefig("graphs/{}.pdf".format(stock))
+    plt.close(f)
 
 def run():
     # read input
@@ -125,19 +145,32 @@ def run():
     date_to_stocks, unique_stocks = readStrategyOutput(csv_name, start_date, end_date)
     stock_history = getStockHistory(unique_stocks)
     dt = start_date
+    stocks_traded = {}
     while dt <= end_date:
         logging.debug("processing date : " + str(dt) + " and # holdings : " + \
                       str(len(ledger.stocks_to_holdings.keys())))
-        
+        stocks_120d_max = dict()
         stocks_suggested = []
-        if dt in date_to_stocks:
-            stocks_suggested = date_to_stocks[dt]
-        stocks_90d_max = getStocks90dMax(stocks_suggested, stock_history, dt)
+        for i in range(3):
+            curr_dt = dt - timedelta(days=(i + 1))
+            if curr_dt in date_to_stocks:
+                curr_stocks = date_to_stocks[curr_dt]
+                for stock in date_to_stocks[curr_dt]:
+                    stocks_suggested += [[i+1, stock]]
+                stocks_120d_max.update(getStocksNDayMax(120, curr_stocks, stock_history, dt - timedelta(days=i+1)))
         curr_time = dt + timedelta(hours=9) + timedelta(minutes=15)
         end_time = dt + timedelta(hours=15) + timedelta(minutes=15)
         bought_today = []
         while curr_time <= end_time:
-            for stock in stocks_suggested:
+            for _stock in stocks_suggested:
+                stock = _stock[1]
+                retest_d = _stock[0]
+                if stock not in stocks_traded:
+                    stocks_traded[stock] = dict()
+                    stocks_traded[stock]["entries"] = []
+                    stocks_traded[stock]["exits"] = []
+                if curr_time != end_time and False:
+                    break
                 logging.info("BUY: processing " + stock + " at " + str(curr_time))
                 if curr_time not in stock_history[stock]:
                     logging.debug(str(curr_time) + " not in " + stock)
@@ -149,7 +182,8 @@ def run():
                 if curr_pos.closev is None:
                     logging.info("closev is none for : " + stock + " at "\
                                  + str(curr_time))
-                elif curr_pos.closev >= stocks_90d_max[stock] and \
+                elif curr_pos.closev <= stocks_120d_max[stock] * 1.01 and \
+                        curr_pos.closev >= (stocks_120d_max[stock] - 0.5) and \
                         curr_pos.closev > 10:
                     if curr_pos.closev != curr_pos.openv:
                         quantity = floor(budget_per_stock/curr_pos.closev)
@@ -157,7 +191,8 @@ def run():
                         if ledger.placeOrder(stock, "BUY", curr_pos.time,
                                         curr_pos.closev, quantity) == True:
                             bought_today += [stock]
-                            logging.info("Successfully bought " + stock)
+                            stocks_traded[stock]["entries"].append([curr_time, curr_pos.closev])
+                            logging.info("Successfully bought " + stock + " for " + str(retest_d) + " retest")
                         else:
                             logging.info("Couldn't buy stock : " + stock)
                     else:
@@ -166,7 +201,7 @@ def run():
                 else:
                     logging.info("90dmax not reached for " + stock + " at " \
                                  + str(curr_time) + " 90dm: " \
-                                 + str(stocks_90d_max[stock]) \
+                                 + str(stocks_120d_max[stock]) \
                                  + " val: " + str(curr_pos.closev))
             curr_holdings = copy.deepcopy(ledger.stocks_to_holdings)
             for stock in curr_holdings.keys():
@@ -183,6 +218,10 @@ def run():
                 exit_condition = \
                     curr_pos.closev > (1 + up_end * 0.01) * order.price or \
                     curr_pos.closev < (1 - lo_end * 0.01) * order.price
+                if dt == start_date:
+                    exit_condition |= \
+                        curr_pos.openv > (1 + up_end * 0.01) * order.price or \
+                        curr_pos.openv < (1 - lo_end * 0.01) * order.price
                 last_pos = curr_pos
                 if exit_condition:
                     logging.info("Exit condition met for " + stock + \
@@ -190,18 +229,31 @@ def run():
                                     " buy-price : " + str(order.price))
                     if ledger.placeOrder(stock, "SELL", curr_time, curr_pos.closev):
                         logging.info("Succefully sold " + stock)
-                    continue
+                    stocks_traded[stock]["exits"].append([curr_time, curr_pos.closev])
                 else:
                     logging.info("Exit condition failed for " + stock + \
                                     " curr-price : " + str(curr_pos.closev) + \
                                     " buy-price : " + str(order.price))
             curr_time += timedelta(hours=1)
         for stock in stocks_suggested:
-            if stock not in ledger.stocks_to_holdings:
-                logging.info("Stock not bought " + stock + " at " + str(dt)\
-                              + " 90dm " + str(stocks_90d_max[stock]))
+            if stock[1] not in ledger.stocks_to_holdings:
+                logging.info("Stock not bought " + stock[1] + " at " + str(dt)\
+                              + " 120dm " + str(stocks_120d_max[stock[1]]))
         ledger.cap_util_statement.append([str(dt), ledger.capital])
         dt += timedelta(days=1)
+    # Generate graphs for all stocks
+    for stock in stocks_traded.keys():
+        curr_time = start_date + timedelta(minutes=15)
+        times = []
+        prices = []
+        while curr_time <= end_date:
+            curr_time += timedelta(hours=1)
+            if curr_time not in stock_history[stock]:
+                continue
+            times.append(curr_time)
+            prices.append(stock_history[stock][curr_time].closev)
+        if len(stocks_traded[stock]["entries"]) > 0:
+            generateGraph(times, prices, stocks_traded[stock]["entries"], stocks_traded[stock]["exits"], stock)
     print("capital utilized : " + \
           str(int(ledger.init_capital - ledger.min_capital)))
     print("profit/loss: " + str(int(ledger.profit_or_loss)))
@@ -209,6 +261,7 @@ def run():
                               int(ledger.init_capital - ledger.min_capital)))
     print("num_sells: " + str(ledger.num_sells) + " num_losses: "\
           + str(ledger.num_losses))
+    print("num_buys: " + str(ledger.num_buys))
     print("loss % : " + str((ledger.num_losses * 100)/ledger.num_sells))
     if not exists("output"):
         os.makedirs("output")
