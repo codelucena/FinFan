@@ -1,6 +1,6 @@
 # FinFan
 
-python3 src/breakout_strategy.py < data/input.txt
+python src/breakout_strategy.py < data/input/breakout-inp.txt
 
 if charts are missing for some stocks
 run python3 src/fetch_chart.py after running the above command and rerun breakout_strategy.py
